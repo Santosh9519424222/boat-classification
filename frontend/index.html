@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚢 Boat Type Classifier - AI-Powered Classification</title>
+    <style>
+        /* ===================================
+           General Styling & Layout
+           =================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            /* Use a modern, clean font stack */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            
+            /* Center content vertically and horizontally */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            
+            /* Add a gradient background for visual appeal */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+        }
+
+        /* ===================================
+           Main Container
+           =================================== */
+        .container {
+            /* White background with rounded corners */
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 20px;
+            
+            /* Add a soft shadow for depth */
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            
+            /* Center all text by default */
+            text-align: center;
+            
+            /* Make container responsive */
+            width: 90%;
+            max-width: 600px;
+            
+            /* Smooth animations when elements change */
+            transition: all 0.3s ease;
+        }
+
+        /* ===================================
+           Header & Typography
+           =================================== */
+        h1 {
+            /* Primary color matching the theme */
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        /* ===================================
+           File Upload Button
+           =================================== */
+        .file-input {
+            /* Hide the default ugly file input */
+            display: none;
+        }
+
+        .file-label {
+            /* Style the label as a beautiful button */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 35px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            
+            /* Smooth hover effect */
+            transition: all 0.3s ease;
+            display: inline-block;
+            
+            /* Add slight shadow */
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-label:hover {
+            /* Lift button on hover */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .file-label:active {
+            /* Press down effect */
+            transform: translateY(0);
+        }
+
+        /* ===================================
+           Image Preview
+           =================================== */
+        #image-preview {
+            margin-top: 30px;
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 15px;
+            
+            /* Add border and padding */
+            border: 3px solid #e0e0e0;
+            padding: 10px;
+            background: #f9f9f9;
+            
+            /* Hidden by default */
+            display: none;
+            
+            /* Smooth fade-in when shown */
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #image-preview.show {
+            /* Show with fade effect */
+            display: block;
+            opacity: 1;
+        }
+
+        /* ===================================
+           Loading Spinner
+           =================================== */
+        .spinner-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .spinner {
+            /* Circular spinner */
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border-left-color: #667eea;
+            
+            /* Spin animation */
+            animation: spin 1s ease infinite;
+            
+            /* Center the spinner */
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner-text {
+            margin-top: 15px;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        /* ===================================
+           Results Display
+           =================================== */
+        #result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            
+            /* Hidden by default */
+            display: none;
+        }
+
+        #result.show {
+            display: block;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-success {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .result-error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+        }
+
+        .prediction-label {
+            font-size: 18px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .prediction-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .confidence-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .confidence-value {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* ===================================
+           Additional Predictions
+           =================================== */
+        .all-predictions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .all-predictions-title {
+            font-size: 16px;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .prediction-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 15px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .prediction-name {
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .prediction-confidence {
+            font-weight: 600;
+        }
+
+        /* ===================================
+           Info Box
+           =================================== */
+        .info-box {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f4ff;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            text-align: left;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .info-box ul {
+            list-style-position: inside;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Application Container -->
+    <div class="container">
+        <!-- Header Section -->
+        <h1>🚢 Boat Type Classifier</h1>
+        <p class="subtitle">
+            Upload an image of a boat, and our AI model will identify its type with confidence scores.
+            Powered by MobileNetV2 deep learning model.
+        </p>
+
+        <!-- File Upload Section -->
+        <!-- The actual file input is hidden, and we style the label as a button -->
+        <input type="file" id="file-input" class="file-input" accept="image/*">
+        <label for="file-input" class="file-label">📁 Choose Boat Image</label>
+
+        <!-- Image Preview Section -->
+        <!-- This will show the uploaded image before classification -->
+        <img id="image-preview" src="#" alt="Your boat image will appear here"/>
+
+        <!-- Loading Spinner Section -->
+        <!-- Shown while the model is processing the image -->
+        <div id="spinner-container" class="spinner-container">
+            <div class="spinner"></div>
+            <p class="spinner-text">Analyzing image...</p>
+        </div>
+
+        <!-- Results Section -->
+        <!-- This will display the classification results -->
+        <div id="result"></div>
+
+        <!-- Information Box -->
+        <div class="info-box">
+            <h3>📋 Supported Boat Types</h3>
+            <ul>
+                <li>Buoy - Floating markers</li>
+                <li>Cruise Ship - Large passenger vessels</li>
+                <li>Ferry Boat - Public transport boats</li>
+                <li>Freight Boat - Cargo ships</li>
+                <li>Gondola - Venetian boats</li>
+                <li>Inflatable Boat - Rubber dinghies</li>
+                <li>Kayak - Small paddle boats</li>
+                <li>Paper Boat - Origami boats</li>
+                <li>Sailboat - Wind-powered vessels</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================
+           JavaScript Logic for the Application
+           ============================================ */
+        
+        // Get references to all the HTML elements we'll interact with
+        const fileInput = document.getElementById('file-input');
+        const imagePreview = document.getElementById('image-preview');
+        const resultDiv = document.getElementById('result');
+        const spinnerContainer = document.getElementById('spinner-container');
+
+        // Listen for when a user selects a file
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+
+            if (file) {
+                // Create a FileReader to read the image file and display it
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    // When the file is loaded, show it in the preview
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.add('show');
+                }
+
+                // Read the file as a data URL (base64 encoded string)
+                reader.readAsDataURL(file);
+
+                // Clear any previous results
+                resultDiv.innerHTML = '';
+                resultDiv.classList.remove('show');
+                
+                // Show the loading spinner
+                spinnerContainer.style.display = 'block';
+
+                // Create a FormData object to send the file to the backend
+                const formData = new FormData();
+                formData.append('file', file);
+
+                /* ----------------------------------------
+                   Send Image to Backend for Prediction
+                   ---------------------------------------- */
+                // The backend server runs on port 5000
+                fetch('http://localhost:5000/predict', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json()) // Parse JSON response
+                .then(data => {
+                    // Hide the spinner
+                    spinnerContainer.style.display = 'none';
+
+                    // Check if there was an error
+                    if (data.error) {
+                        // Display error message
+                        resultDiv.className = 'result-error';
+                        resultDiv.innerHTML = `
+                            <p><strong>❌ Error:</strong> ${data.error}</p>
+                        `;
+                    } else {
+                        // Display successful prediction
+                        resultDiv.className = 'result-success';
+                        
+                        // Format the prediction name (capitalize and replace underscores)
+                        const formattedPrediction = data.prediction
+                            .split('_')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                        
+                        // Build the results HTML
+                        let html = `
+                            <div class="prediction-label">Predicted Boat Type</div>
+                            <div class="prediction-value">${formattedPrediction}</div>
+                            <div class="confidence-label">Confidence Score</div>
+                            <div class="confidence-value">${data.confidence}</div>
+                        `;
+                        
+                        // Add all predictions if available
+                        if (data.all_predictions) {
+                            html += `
+                                <div class="all-predictions">
+                                    <div class="all-predictions-title">All Predictions:</div>
+                            `;
+                            
+                            // Show top 5 predictions
+                            let count = 0;
+                            for (const [boatType, confidence] of Object.entries(data.all_predictions)) {
+                                if (count >= 5) break;
+                                
+                                const formattedType = boatType
+                                    .split('_')
+                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                    .join(' ');
+                                
+                                const percentage = (confidence * 100).toFixed(1);
+                                
+                                html += `
+                                    <div class="prediction-item">
+                                        <span class="prediction-name">${formattedType}</span>
+                                        <span class="prediction-confidence">${percentage}%</span>
+                                    </div>
+                                `;
+                                count++;
+                            }
+                            
+                            html += `</div>`;
+                        }
+                        
+                        resultDiv.innerHTML = html;
+                    }
+                    
+                    // Show the result with animation
+                    resultDiv.classList.add('show');
+                })
+                .catch(error => {
+                    // Handle any network or other errors
+                    spinnerContainer.style.display = 'none';
+                    resultDiv.className = 'result-error';
+                    resultDiv.innerHTML = `
+                        <p><strong>❌ Network Error:</strong></p>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 14px;">
+                            Make sure the backend server is running on port 5000.
+                        </p>
+                    `;
+                    resultDiv.classList.add('show');
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>

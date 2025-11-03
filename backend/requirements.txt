@@ -1,0 +1,20 @@
+# Backend Requirements for Boat Type Classification
+# ===================================================
+# This file lists all the Python packages needed to run the backend server
+
+# Flask - Web framework for creating the API
+Flask==2.3.0
+
+# Flask-CORS - Enables Cross-Origin Resource Sharing
+# This allows the frontend (running on a different port/domain) to communicate with the backend
+flask-cors==4.0.0
+
+# TensorFlow - Deep learning library for loading and running the model
+tensorflow==2.13.0
+
+# NumPy - Numerical computing library
+numpy==1.24.3
+
+# Pillow - Image processing library
+# Used by Keras to load and preprocess images
+Pillow==10.0.0

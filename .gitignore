@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Model files (too large for GitHub)
+*.h5
+*.keras
+*.pkl
+*.pt
+*.pth
+
+# Dataset (too large for GitHub)
+data/
+boat_type_classification_dataset/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Flask
+instance/
+.webassets-cache
+
+# Environment
+.env
+.env.local
