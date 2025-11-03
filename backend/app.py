@@ -1,11 +1,17 @@
 """
-Backend Application for Boat Type Classification
-=================================================
-This Flask application serves as the backend for our boat classifier.
-It loads the trained model and provides an API endpoint for predictions.
+🚢 Boat Type Classification - Backend API
+==========================================
+Flask REST API for serving boat classification predictions.
+
+Features:
+- Loads trained MobileNetV2 model on startup
+- Accepts image uploads via POST request
+- Returns predicted boat type with confidence scores
+- CORS enabled for frontend communication
+
+Author: Boat Classification Project
 """
 
-# Import necessary libraries
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -14,206 +20,251 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 import io
 
-# Initialize the Flask application
+# ============================================================================
+# FLASK APPLICATION SETUP
+# ============================================================================
+
 app = Flask(__name__)
+CORS(app)  # Enable Cross-Origin Resource Sharing for frontend communication
 
-# Enable CORS (Cross-Origin Resource Sharing) to allow the frontend to communicate with the backend
-CORS(app)
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
 
-# --- Configuration ---
-# Define the path to the saved model
-MODEL_PATH = 'boat_classifier_mobilenet.h5'
+MODEL_PATH = 'boat_classifier_mobilenet.h5'  # Path to the trained model file
 
-# --- Model Loading ---
-# Load the trained model when the server starts
-# This is done once at startup to avoid loading the model on every request
+# Define boat type classes (MUST match training order)
+CLASS_NAMES = [
+    'buoy',            # Floating water markers
+    'cruise_ship',     # Large passenger vessels
+    'ferry_boat',      # Passenger/vehicle transport boats
+    'freight_boat',    # Cargo ships
+    'gondola',         # Traditional Venetian boats
+    'inflatable_boat', # Rubber/inflatable boats
+    'kayak',           # Small paddle-powered boats
+    'paper_boat',      # Origami-style paper boats
+    'sailboat'         # Wind-powered sail boats
+]
+
+# ============================================================================
+# MODEL LOADING
+# ============================================================================
+
 try:
+    # Load the trained model once at server startup (not on each request)
     model = load_model(MODEL_PATH)
-    print(f"✓ Model loaded successfully from {MODEL_PATH}")
-    print(f"✓ Model is ready to make predictions")
+    print(f"✓ Model loaded successfully from: {MODEL_PATH}")
+    print(f"✓ Ready to classify {len(CLASS_NAMES)} boat types")
+except FileNotFoundError:
+    print(f"✗ ERROR: Model file not found at: {MODEL_PATH}")
+    print("  Please run the training notebook and move the .h5 file to backend/")
+    model = None
 except Exception as e:
-    print(f"✗ Error loading model: {e}")
+    print(f"✗ ERROR loading model: {str(e)}")
     model = None
 
-# --- Define Class Names ---
-# These are the boat types our model can identify
-# They must be in the same order as during training
-CLASS_NAMES = [
-    'buoy',           # Floating markers in water
-    'cruise_ship',    # Large passenger ships
-    'ferry_boat',     # Boats that transport people/vehicles
-    'freight_boat',   # Cargo ships
-    'gondola',        # Traditional Venetian boats
-    'inflatable_boat',# Rubber boats
-    'kayak',          # Small paddle boats
-    'paper_boat',     # Origami-style boats
-    'sailboat'        # Boats with sails
-]
+# ============================================================================
+# IMAGE PREPROCESSING FUNCTION
+# ============================================================================
 
 def preprocess_image(img_bytes):
     """
-    Preprocess an image for model prediction.
+    Prepare an uploaded image for model prediction.
     
-    This function performs the following steps:
-    1. Loads the image from bytes into a PIL format
-    2. Resizes the image to 224x224 pixels (required by MobileNetV2)
-    3. Converts the image to a NumPy array
-    4. Adds a batch dimension (the model expects a batch of images)
-    5. Rescales pixel values from [0, 255] to [0, 1]
+    Process:
+    1. Load image from raw bytes
+    2. Resize to 224x224 (MobileNetV2 input size)
+    3. Convert to NumPy array
+    4. Add batch dimension [1, 224, 224, 3]
+    5. Normalize pixel values to [0, 1] range
     
-    Parameters:
-    -----------
-    img_bytes : bytes
-        The raw image data in bytes format
+    Args:
+        img_bytes (bytes): Raw image data from upload
     
     Returns:
-    --------
-    numpy.ndarray
-        Preprocessed image array ready for model prediction
+        np.ndarray: Preprocessed image array shape (1, 224, 224, 3)
     """
-    # Load the image from bytes and resize it to 224x224 pixels
+    # Step 1: Load and resize image to model's expected input size
     img = image.load_img(io.BytesIO(img_bytes), target_size=(224, 224))
     
-    # Convert the PIL image to a numpy array
+    # Step 2: Convert PIL image to NumPy array [224, 224, 3]
     img_array = image.img_to_array(img)
     
-    # Add a batch dimension (model expects shape: [batch_size, height, width, channels])
-    img_array_expanded = np.expand_dims(img_array, axis=0)
+    # Step 3: Add batch dimension [1, 224, 224, 3]
+    # Model expects batches, even if we're only predicting one image
+    img_batch = np.expand_dims(img_array, axis=0)
     
-    # Rescale pixel values from [0, 255] to [0, 1]
-    # This matches the preprocessing used during training
-    return img_array_expanded / 255.0
+    # Step 4: Normalize pixel values from [0-255] to [0-1]
+    # This matches the rescaling used during training
+    normalized_img = img_batch / 255.0
+    
+    return normalized_img
 
-# --- API Routes ---
+# ============================================================================
+# API ENDPOINTS
+# ============================================================================
 
 @app.route('/', methods=['GET'])
 def home():
     """
-    Home endpoint - provides information about the API.
-    This is useful for checking if the server is running.
+    Home endpoint - API information and status check.
+    
+    Returns:
+        JSON with API details and model status
     """
     return jsonify({
-        'message': 'Boat Type Classification API',
+        'message': 'Boat Type Classification API v1.0',
         'status': 'running',
         'model_loaded': model is not None,
+        'supported_classes': len(CLASS_NAMES),
         'endpoints': {
-            '/': 'API information',
-            '/predict': 'POST - Upload an image to get boat type prediction'
+            'GET /': 'API information',
+            'POST /predict': 'Upload image for classification',
+            'GET /health': 'Server health check'
         }
     })
 
 @app.route('/predict', methods=['POST'])
 def predict():
     """
-    Prediction endpoint - receives an image and returns the predicted boat type.
+    Main prediction endpoint - classifies uploaded boat images.
     
-    This function:
-    1. Checks if the model is loaded
-    2. Validates the uploaded file
-    3. Preprocesses the image
-    4. Makes a prediction using the model
-    5. Returns the predicted class and confidence score
+    Request:
+        - Method: POST
+        - Content-Type: multipart/form-data
+        - Body: 'file' field with image (jpg/png)
     
-    Returns:
-    --------
-    JSON response with:
-        - prediction: The predicted boat type
-        - confidence: How confident the model is (as a percentage)
-        - all_predictions: Confidence scores for all classes
+    Response:
+        JSON with:
+        - success: True/False
+        - prediction: Predicted boat type (string)
+        - confidence: Confidence as percentage (string)
+        - confidence_raw: Raw confidence score 0-1 (float)
+        - all_predictions: Dict of all class probabilities
+    
+    Error Codes:
+        - 500: Model not loaded or prediction failed
+        - 400: No file uploaded or invalid request
     """
-    # Check if the model is loaded
+    
+    # === VALIDATION CHECKS ===
+    
+    # Check 1: Is model loaded?
     if model is None:
         return jsonify({
-            'error': 'Model is not loaded. Please check the server logs.'
+            'success': False,
+            'error': 'Model not loaded. Check server logs for details.'
         }), 500
-
-    # Check if a file was included in the request
+    
+    # Check 2: Was a file uploaded?
     if 'file' not in request.files:
         return jsonify({
-            'error': 'No file provided. Please upload an image.'
+            'success': False,
+            'error': 'No file field in request. Use key "file" for upload.'
         }), 400
     
     file = request.files['file']
-
-    # Check if the user selected a file
+    
+    # Check 3: Is the file empty?
     if file.filename == '':
         return jsonify({
-            'error': 'No file selected. Please choose an image file.'
+            'success': False,
+            'error': 'Empty filename. Please select an image file.'
         }), 400
-
+    
+    # === PREDICTION PROCESS ===
+    
     try:
-        # Read the image file as bytes
+        # Step 1: Read uploaded image as bytes
         img_bytes = file.read()
         
-        # Preprocess the image
-        processed_image = preprocess_image(img_bytes)
+        # Step 2: Preprocess image for model
+        processed_img = preprocess_image(img_bytes)
         
-        # Make a prediction using the model
-        # The model returns probabilities for each class
-        prediction = model.predict(processed_image, verbose=0)
+        # Step 3: Run model prediction
+        # Returns array of probabilities for each class
+        predictions = model.predict(processed_img, verbose=0)
         
-        # Get the index of the class with the highest probability
-        predicted_class_index = np.argmax(prediction[0])
+        # Step 4: Extract prediction results
+        predicted_class_idx = np.argmax(predictions[0])          # Index of highest probability
+        predicted_class = CLASS_NAMES[predicted_class_idx]       # Class name
+        confidence = float(predictions[0][predicted_class_idx])  # Confidence score
         
-        # Get the corresponding class name
-        predicted_class_name = CLASS_NAMES[predicted_class_index]
-        
-        # Get the confidence score (probability of the predicted class)
-        confidence = float(prediction[0][predicted_class_index])
-        
-        # Create a dictionary of all predictions
+        # Step 5: Create dictionary of all class probabilities
         all_predictions = {
-            CLASS_NAMES[i]: float(prediction[0][i]) 
+            CLASS_NAMES[i]: float(predictions[0][i]) 
             for i in range(len(CLASS_NAMES))
         }
         
-        # Sort predictions by confidence (highest first)
+        # Step 6: Sort predictions by confidence (highest first)
         sorted_predictions = dict(
             sorted(all_predictions.items(), key=lambda x: x[1], reverse=True)
         )
         
-        # Return the results as JSON
+        # Step 7: Return results
         return jsonify({
             'success': True,
-            'prediction': predicted_class_name,
-            'confidence': f'{confidence:.2%}',
-            'confidence_raw': confidence,
-            'all_predictions': sorted_predictions
+            'prediction': predicted_class,
+            'confidence': f'{confidence:.2%}',      # e.g., "85.50%"
+            'confidence_raw': confidence,            # e.g., 0.8550
+            'all_predictions': sorted_predictions,
+            'filename': file.filename
         })
     
     except Exception as e:
-        # Handle any errors that occur during prediction
+        # Handle any unexpected errors during prediction
         return jsonify({
-            'error': f'Error processing image: {str(e)}'
+            'success': False,
+            'error': f'Prediction failed: {str(e)}'
         }), 500
 
-# --- Health Check Endpoint ---
 @app.route('/health', methods=['GET'])
 def health():
     """
-    Health check endpoint - useful for monitoring the server status.
+    Health check endpoint for monitoring server status.
+    
+    Returns:
+        JSON with server and model status
     """
     return jsonify({
         'status': 'healthy',
-        'model_loaded': model is not None
+        'model_loaded': model is not None,
+        'classes': len(CLASS_NAMES)
     })
 
-# --- Main Execution ---
+# ============================================================================
+# SERVER STARTUP
+# ============================================================================
+
 if __name__ == '__main__':
     """
-    Start the Flask application.
+    Start the Flask development server.
     
     Configuration:
-    - host='0.0.0.0': Makes the server accessible from other devices on the network
-    - port=5000: The port number the server will listen on
-    - debug=True: Enables debug mode (auto-reload on code changes)
-    """
-    print("\n" + "="*60)
-    print("🚢 Boat Type Classification Backend Server")
-    print("="*60)
-    print(f"Server starting on http://localhost:5000")
-    print(f"Model status: {'✓ Loaded' if model else '✗ Not loaded'}")
-    print("="*60 + "\n")
+    - host='0.0.0.0': Accept connections from any IP (local network access)
+    - port=5000: Default Flask port
+    - debug=True: Enable auto-reload and detailed error messages
     
+    WARNING: debug=True should be False in production!
+    """
+    
+    print("\n" + "=" * 70)
+    print("🚢 BOAT TYPE CLASSIFICATION API SERVER")
+    print("=" * 70)
+    print(f"   Server URL: http://localhost:5000")
+    print(f"   Model Status: {'✓ Loaded (' + str(len(CLASS_NAMES)) + ' classes)' if model else '✗ NOT LOADED'}")
+    print(f"   CORS: Enabled")
+    print(f"   Debug Mode: ON")
+    print("=" * 70)
+    print("\n📡 API Endpoints:")
+    print("   GET  /         - API information")
+    print("   POST /predict  - Upload image for classification")
+    print("   GET  /health   - Health check")
+    print("\n🔧 To test: Upload an image using frontend/index.html")
+    print("=" * 70 + "\n")
+    
+    # Get port from environment variable or use default 5000
     port = int(os.environ.get('PORT', 5000))
+    
+    # Start the server
     app.run(host='0.0.0.0', port=port, debug=True)
