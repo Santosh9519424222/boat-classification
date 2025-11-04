@@ -19,7 +19,8 @@ boat-classification/
 │   ├── validation/                              # Validation images (15%)
 │   └── test/                                    # Test images (15%)
 │
-├── boat-classification-optimized.ipynb         # ⭐ OPTIMIZED training notebook (use this!)
+├── boat-classification.ipynb                    # ⭐ Main training notebook
+├── cleanup.py                                   # Script to clean unnecessary files
 └── requirements.txt                             # Project dependencies
 ```
 
@@ -53,17 +54,19 @@ pip install -r requirements.txt
 ### Step 1: Train the Model (20-30 minutes)
 
 ```powershell
-# 1. Open the optimized notebook in VS Code
-# File: boat-classification-optimized.ipynb
+# 1. Open the notebook in VS Code
+# File: boat-classification.ipynb
 
 # 2. Run all cells from top to bottom (Ctrl+Shift+P → "Run All Cells")
 # This will:
-#   - Split your dataset into train/val/test
-#   - Train MobileNetV2 with proper regularization
-#   - Save boat_classifier_mobilenet.h5
+#   - Split your dataset into train/val/test (70/15/15 split)
+#   - Train Custom CNN model
+#   - Train MobileNetV2 model with transfer learning
+#   - Compare both models
+#   - Save the best model as boat_classifier_mobilenet.h5 or boat_classifier_cnn.h5
 
-# 3. Move the model to backend folder
-Move-Item -Path "boat_classifier_mobilenet.h5" -Destination "backend\boat_classifier_mobilenet.h5" -Force
+# 3. Move the best model to backend folder
+Move-Item -Path "boat_classifier_*.h5" -Destination "backend\" -Force
 ```
 
 ### Step 2: Start Backend Server
@@ -119,13 +122,14 @@ Target:  All classes should have 100+ images ✅
 - **Unsplash/Pexels:** Free stock photos
 
 ### 3. Code Is Already Optimized
-The `boat-classification-optimized.ipynb` notebook already includes:
-- ✅ Data augmentation (rotation, zoom, flip)
-- ✅ Dropout (50%, 30%) to prevent overfitting
-- ✅ L2 regularization on dense layers
-- ✅ Early stopping (patience=7)
-- ✅ Learning rate reduction
-- ✅ Batch normalization
+The `boat-classification.ipynb` notebook already includes:
+- ✅ Data augmentation (rotation, zoom, flip, shear)
+- ✅ Two model architectures (Custom CNN + MobileNetV2)
+- ✅ Dropout and Batch Normalization to prevent overfitting
+- ✅ Early stopping (patience=5)
+- ✅ Class weights for imbalanced data
+- ✅ Transfer learning with MobileNetV2
+- ✅ Comprehensive evaluation (confusion matrix, classification report)
 
 ## 📈 Expected Results
 
